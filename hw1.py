@@ -29,7 +29,7 @@ rcParams['patch.edgecolor'] = 'none'
 
 
 def get_poll_xml(poll_ID):
-    XML=requests.get("http://charts.realclearpolitics.com/charts/%d.xml"%poll_ID).text
+    XML=requests.get("http://charts.realclearpolitics.com/charts/%d.xml"%int(poll_ID)).text
     return XML
 
 
@@ -129,4 +129,47 @@ def find_governor_races(html):
     return links
 
 def race_result(url):
+    dom = web.Element(requests.get(url).text)
+
+    table = dom.by_tag('div#polling-data-rcp')[0]
+    result_data = table.by_tag('tr.final')[0]
+    td = result_data.by_tag('td')
+
+    results = [float(t.content) for t in td[3:-1]]
+    tot = sum(results) / 100
+
+    #get table headers
+    headers = table.by_tag('th')
+    labels = [str(t.content).split('(')[0].strip() for t in headers[3:-1]]
+
+    return {l:r / tot for l, r in zip(labels, results)}
+
+def id_from_url(url):
+    """Given a URL, look up the RCP identifier number"""
+    return url.split('-')[-1].split('.html')[0]
+
+
+def plot_race(url):
+    """Make a plot summarizing a senate race
+
+    Overplots the actual race results as dashed horizontal lines
+    """
+    #hey, thanks again for these functions!
+    id = id_from_url(url)
+    xml = get_poll_xml(id)
+    colors = plot_colors(xml)
+
+    if len(colors) == 0:
+        return
+
+    #really, you shouldn't have
+    result = race_result(url)
+
+    poll_plot(id)
+    plt.xlabel("Date")
+    plt.ylabel("Polling Percentage")
+    for r in result:
+        plt.axhline(result[r], color=colors[_strip(r)], alpha=0.6, ls='--')
+
+
 
